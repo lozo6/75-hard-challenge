@@ -15,12 +15,14 @@ export interface DayState {
   dayNumber: number
   date: string // ISO string
   tasks: Record<TaskId, boolean>
+  reflection: string
 }
 
 export interface ChallengeState {
   startedAt: string | null
   mode: Mode
   currentDay: DayState
+  history?: DayState[] // previous days (local-only)
 }
 
 const emptyTasks: Record<TaskId, boolean> = {
@@ -33,14 +35,18 @@ const emptyTasks: Record<TaskId, boolean> = {
   water: false,
 }
 
+const makeNewDay = (dayNumber: number): DayState => ({
+  dayNumber,
+  date: new Date().toISOString(),
+  tasks: { ...emptyTasks },
+  reflection: '',
+})
+
 const initialState: ChallengeState = {
   startedAt: null,
   mode: 'STRICT',
-  currentDay: {
-    dayNumber: 1,
-    date: new Date().toISOString(),
-    tasks: { ...emptyTasks },
-  },
+  currentDay: makeNewDay(1),
+  history: [],
 }
 
 const challengeSlice = createSlice({
@@ -48,39 +54,43 @@ const challengeSlice = createSlice({
   initialState,
   reducers: {
     hydrate(_state, action: PayloadAction<ChallengeState | undefined>) {
-      // Replace the slice state with what we loaded from storage (if any)
       if (!action.payload) return _state
-      return action.payload
+      const payload = action.payload
+      return {
+        ...payload,
+        history: payload.history ?? [],
+      }
     },
     startChallenge(state, action: PayloadAction<{ mode?: Mode } | undefined>) {
       const mode = action.payload?.mode ?? state.mode
       state.mode = mode
       state.startedAt = new Date().toISOString()
-      state.currentDay = {
-        dayNumber: 1,
-        date: new Date().toISOString(),
-        tasks: { ...emptyTasks },
-      }
+      state.currentDay = makeNewDay(1)
+      // keep history so they can see past attempts
     },
     toggleTask(state, action: PayloadAction<{ taskId: TaskId }>) {
       const { taskId } = action.payload
       state.currentDay.tasks[taskId] = !state.currentDay.tasks[taskId]
     },
+    setReflection(state, action: PayloadAction<{ text: string }>) {
+      state.currentDay.reflection = action.payload.text
+    },
     nextDay(state) {
-      state.currentDay.dayNumber += 1
-      state.currentDay.date = new Date().toISOString()
-      state.currentDay.tasks = { ...emptyTasks }
+      const history = state.history ?? []
+      history.push(state.currentDay)
+      state.history = history
+      state.currentDay = makeNewDay(state.currentDay.dayNumber + 1)
     },
     resetChallenge(state) {
+      // reset current run, keep history of past days/runs
       state.startedAt = null
-      state.currentDay = {
-        dayNumber: 1,
-        date: new Date().toISOString(),
-        tasks: { ...emptyTasks },
-      }
+      state.currentDay = makeNewDay(1)
     },
     setMode(state, action: PayloadAction<Mode>) {
       state.mode = action.payload
+    },
+    clearHistory(state) {
+      state.history = []
     },
   },
 })
@@ -89,9 +99,11 @@ export const {
   hydrate,
   startChallenge,
   toggleTask,
+  setReflection,
   nextDay,
   resetChallenge,
   setMode,
+  clearHistory,
 } = challengeSlice.actions
 
 export default challengeSlice.reducer
