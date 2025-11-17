@@ -10,8 +10,12 @@ import {
   setMode,
   setReflection,
   clearHistory,
-  type TaskId,
+  addTask,
+  updateTaskLabel,
+  removeTask,
+  resetTasksForMode,
   type DayState,
+  type TaskId,
 } from '@/features/challenge/challengeSlice'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,19 +23,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
-
-const TASK_LABELS: Record<TaskId, string> = {
-  workout1: 'Workout 1 (45 min)',
-  workout2: 'Workout 2 (45 min, must be outdoors)',
-  diet: 'Follow your diet',
-  no_alcohol: 'No alcohol / cheat meals',
-  reading: 'Read 10 pages (non-fiction)',
-  progress_pic: 'Take a progress picture',
-  water: 'Drink 1 gallon of water',
-}
+import { Input } from '@/components/ui/input'
 
 const getCompletionPercent = (day: DayState): number => {
-  const values = Object.values(day.tasks)
+  const values = Object.values(day.tasks ?? {})
+  if (values.length === 0) return 0
   const completed = values.filter(Boolean).length
   return (completed / values.length) * 100
 }
@@ -40,6 +36,7 @@ export default function HomePage() {
   const dispatch = useAppDispatch()
   const challenge = useAppSelector((state) => state.challenge)
   const history = challenge.history ?? []
+  const tasksForMode = challenge.taskDefinitions[challenge.mode] ?? []
 
   const completionPercent = useMemo(
     () => getCompletionPercent(challenge.currentDay),
@@ -47,6 +44,8 @@ export default function HomePage() {
   )
 
   const modeLabel = challenge.mode === 'HARD' ? 'Hard' : 'Soft'
+  const hasStarted = Boolean(challenge.startedAt)
+  const canEditTasks = !hasStarted
 
   const handleStart = () => {
     dispatch(startChallenge({ mode: challenge.mode }))
@@ -74,7 +73,7 @@ export default function HomePage() {
 
   const handleReset = () => {
     const confirmed = window.confirm(
-      'This will reset you to Day 1. Your history for this run will remain on this device. Continue?',
+      'This will reset you to Day 1. Your task configuration stays the same, but you will lose your current progress. Continue?',
     )
     if (confirmed) {
       dispatch(resetChallenge())
@@ -82,6 +81,7 @@ export default function HomePage() {
   }
 
   const handleModeToggle = (checked: boolean) => {
+    // Switch ON = Hard, OFF = Soft
     dispatch(setMode(checked ? 'HARD' : 'SOFT'))
   }
 
@@ -97,6 +97,51 @@ export default function HomePage() {
     }
   }
 
+  const handleUpdateTaskLabel = (id: TaskId, label: string) => {
+    if (!canEditTasks) return
+    dispatch(
+      updateTaskLabel({
+        mode: challenge.mode,
+        id,
+        label,
+      }),
+    )
+  }
+
+  const handleRemoveTask = (id: TaskId) => {
+    if (!canEditTasks) return
+    const confirmed = window.confirm('Remove this task from this mode?')
+    if (confirmed) {
+      dispatch(removeTask({ mode: challenge.mode, id }))
+    }
+  }
+
+  const handleAddTask = () => {
+    if (!canEditTasks) return
+    const label = window.prompt(
+      `New task label for ${modeLabel} mode:`,
+      '',
+    )
+    if (label && label.trim().length > 0) {
+      dispatch(
+        addTask({
+          mode: challenge.mode,
+          label: label.trim(),
+        }),
+      )
+    }
+  }
+
+  const handleResetTasksForMode = () => {
+    if (!canEditTasks) return
+    const confirmed = window.confirm(
+      `Reset tasks for ${modeLabel} mode back to defaults? This will reset today's tasks for this mode.`,
+    )
+    if (confirmed) {
+      dispatch(resetTasksForMode({ mode: challenge.mode }))
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-8">
       <header className="flex items-center justify-between gap-4">
@@ -109,7 +154,7 @@ export default function HomePage() {
 
         <div className="flex items-center gap-2">
           <span className="text-xs uppercase text-muted-foreground">
-            Mode: {challenge.mode === 'HARD' ? 'Hard' : 'Soft'}
+            Mode: {modeLabel}
           </span>
           <Switch
             checked={challenge.mode === 'HARD'}
@@ -124,37 +169,42 @@ export default function HomePage() {
           <CardTitle>
             Day {challenge.currentDay.dayNumber}{' '}
             <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {challenge.startedAt ? 'In progress' : 'Not started'}
+              {hasStarted ? 'In progress' : 'Not started'}
             </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!challenge.startedAt && (
+          {!hasStarted && (
             <Button onClick={handleStart} className="w-full">
               Start 75 {modeLabel}
             </Button>
           )}
 
-          {challenge.startedAt && (
+          {hasStarted && (
             <>
               {/* Tasks */}
               <div className="space-y-3">
-                {Object.entries(challenge.currentDay.tasks).map(
-                  ([id, value]) => {
-                    const taskId = id as TaskId
-                    return (
-                      <label
-                        key={taskId}
-                        className="flex items-center gap-3 rounded-md border p-2 hover:bg-muted"
-                      >
-                        <Checkbox
-                          checked={value}
-                          onCheckedChange={() => handleToggleTask(taskId)}
-                        />
-                        <span className="text-sm">{TASK_LABELS[taskId]}</span>
-                      </label>
-                    )
-                  },
+                {tasksForMode.map((task) => {
+                  const value = challenge.currentDay.tasks[task.id] ?? false
+                  return (
+                    <label
+                      key={task.id}
+                      className="flex items-center gap-3 rounded-md border p-2 hover:bg-muted"
+                    >
+                      <Checkbox
+                        checked={value}
+                        onCheckedChange={() => handleToggleTask(task.id)}
+                      />
+                      <span className="text-sm">{task.label}</span>
+                    </label>
+                  )
+                })}
+
+                {tasksForMode.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No tasks configured for this mode. Use the customization
+                    section below to add tasks.
+                  </p>
                 )}
               </div>
 
@@ -196,6 +246,87 @@ export default function HomePage() {
               </div>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Customize tasks for current mode */}
+      <Card
+        className={
+          hasStarted ? 'opacity-70 transition-opacity' : 'transition-opacity'
+        }
+      >
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div className="space-y-1">
+            <CardTitle className="text-base">
+              Customize tasks ({modeLabel} mode)
+            </CardTitle>
+            {hasStarted && (
+              <p className="text-xs text-muted-foreground">
+                Locked after starting. Reset to Day 1 to change tasks.
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs"
+              onClick={handleAddTask}
+              disabled={!canEditTasks}
+            >
+              Add task
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs text-muted-foreground"
+              onClick={handleResetTasksForMode}
+              disabled={!canEditTasks}
+            >
+              Reset to defaults
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {tasksForMode.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No tasks configured yet. {canEditTasks
+                ? 'Add tasks or reset to defaults.'
+                : 'Reset to Day 1 to edit tasks.'}
+            </p>
+          )}
+
+          {tasksForMode.map((task) => (
+            <div
+              key={task.id}
+              className="flex items-center gap-2 rounded-md border p-2"
+            >
+              {canEditTasks ? (
+                <>
+                  <Input
+                    defaultValue={task.label}
+                    onBlur={(e) =>
+                      handleUpdateTaskLabel(task.id, e.target.value)
+                    }
+                    className="h-8 text-xs"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-xs text-destructive"
+                    onClick={() => handleRemoveTask(task.id)}
+                    aria-label="Remove task"
+                  >
+                    ✕
+                  </Button>
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  {task.label}
+                </span>
+              )}
+            </div>
+          ))}
         </CardContent>
       </Card>
 
