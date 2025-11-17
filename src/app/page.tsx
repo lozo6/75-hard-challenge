@@ -1,65 +1,141 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import {
+  startChallenge,
+  toggleTask,
+  nextDay,
+  resetChallenge,
+  setMode,
+  TaskId,
+} from '@/features/challenge/challengeSlice'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import { Progress } from '@/components/ui/progress'
+import { useMemo } from 'react'
+
+const TASK_LABELS: Record<TaskId, string> = {
+  workout1: 'Workout 1 (45 min)',
+  workout2: 'Workout 2 (45 min, must be outdoors)',
+  diet: 'Follow your diet',
+  no_alcohol: 'No alcohol / cheat meals',
+  reading: 'Read 10 pages (non-fiction)',
+  progress_pic: 'Take a progress picture',
+  water: 'Drink 1 gallon of water',
+}
+
+export default function HomePage() {
+  const dispatch = useAppDispatch()
+  const challenge = useAppSelector((state) => state.challenge)
+
+  const completionPercent = useMemo(() => {
+    const tasks = challenge.currentDay.tasks
+    const values = Object.values(tasks)
+    const completed = values.filter(Boolean).length
+    return (completed / values.length) * 100
+  }, [challenge.currentDay.tasks])
+
+  const handleStart = () => {
+    dispatch(startChallenge({ mode: challenge.mode }))
+  }
+
+  const handleToggleTask = (taskId: TaskId) => {
+    dispatch(toggleTask({ taskId }))
+  }
+
+  const handleNextDay = () => {
+    dispatch(nextDay())
+  }
+
+  const handleReset = () => {
+    dispatch(resetChallenge())
+  }
+
+  const handleModeToggle = (checked: boolean) => {
+    dispatch(setMode(checked ? 'STRICT' : 'COACH'))
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-8">
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">75 Hard Tracker</h1>
+          <p className="text-sm text-muted-foreground">
+            Simple daily checklist with Strict / Coach modes.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs uppercase text-muted-foreground">
+            Mode: {challenge.mode === 'STRICT' ? 'Strict' : 'Coach'}
+          </span>
+          <Switch
+            checked={challenge.mode === 'STRICT'}
+            onCheckedChange={handleModeToggle}
+          />
         </div>
-      </main>
-    </div>
-  );
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Day {challenge.currentDay.dayNumber}{' '}
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {challenge.startedAt ? 'In progress' : 'Not started'}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!challenge.startedAt && (
+            <Button onClick={handleStart} className="w-full">
+              Start 75 Hard
+            </Button>
+          )}
+
+          {challenge.startedAt && (
+            <>
+              <div className="space-y-3">
+                {Object.entries(challenge.currentDay.tasks).map(
+                  ([id, value]) => {
+                    const taskId = id as TaskId
+                    return (
+                      <label
+                        key={taskId}
+                        className="flex items-center gap-3 rounded-md border p-2 hover:bg-muted"
+                      >
+                        <Checkbox
+                          checked={value}
+                          onCheckedChange={() => handleToggleTask(taskId)}
+                        />
+                        <span className="text-sm">{TASK_LABELS[taskId]}</span>
+                      </label>
+                    )
+                  },
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Completion</span>
+                  <span>{Math.round(completionPercent)}%</span>
+                </div>
+                <Progress value={completionPercent} />
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={handleReset}>
+                  Reset (fail day)
+                </Button>
+                <Button className="flex-1" onClick={handleNextDay}>
+                  Next Day
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </main>
+  )
 }
