@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import {
   startChallenge,
@@ -46,6 +46,8 @@ export default function HomePage() {
   const modeLabel = challenge.mode === 'HARD' ? 'Hard' : 'Soft'
   const hasStarted = Boolean(challenge.startedAt)
   const canEditTasks = !hasStarted
+
+  const [newTaskLabel, setNewTaskLabel] = useState('')
 
   const handleStart = () => {
     dispatch(startChallenge({ mode: challenge.mode }))
@@ -118,18 +120,17 @@ export default function HomePage() {
 
   const handleAddTask = () => {
     if (!canEditTasks) return
-    const label = window.prompt(
-      `New task label for ${modeLabel} mode:`,
-      '',
+    const label = newTaskLabel.trim()
+    if (!label) return
+
+    dispatch(
+      addTask({
+        mode: challenge.mode,
+        label,
+      }),
     )
-    if (label && label.trim().length > 0) {
-      dispatch(
-        addTask({
-          mode: challenge.mode,
-          label: label.trim(),
-        }),
-      )
-    }
+
+    setNewTaskLabel('')
   }
 
   const handleResetTasksForMode = () => {
@@ -266,43 +267,49 @@ export default function HomePage() {
               </p>
             )}
           </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-xs"
-              onClick={handleAddTask}
-              disabled={!canEditTasks}
-            >
-              Add task
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-xs text-muted-foreground"
-              onClick={handleResetTasksForMode}
-              disabled={!canEditTasks}
-            >
-              Reset to defaults
-            </Button>
-          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {tasksForMode.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              No tasks configured yet. {canEditTasks
-                ? 'Add tasks or reset to defaults.'
-                : 'Reset to Day 1 to edit tasks.'}
-            </p>
-          )}
 
-          {tasksForMode.map((task) => (
-            <div
-              key={task.id}
-              className="flex items-center gap-2 rounded-md border p-2"
-            >
-              {canEditTasks ? (
-                <>
+        <CardContent className="space-y-3">
+          {!hasStarted && (
+            <>
+              {/* Add task inline input */}
+              <div className="flex gap-2">
+                <Input
+                  value={newTaskLabel}
+                  onChange={(e) => setNewTaskLabel(e.target.value)}
+                  placeholder={`Add a ${modeLabel.toLowerCase()} task...`}
+                  className="h-8 text-xs"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={handleAddTask}
+                  disabled={!newTaskLabel.trim()}
+                >
+                  Add
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs text-muted-foreground"
+                  onClick={handleResetTasksForMode}
+                >
+                  Reset to defaults
+                </Button>
+              </div>
+
+              {tasksForMode.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No tasks configured yet. Add tasks or reset to defaults.
+                </p>
+              )}
+
+              {tasksForMode.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 rounded-md border p-2"
+                >
                   <Input
                     defaultValue={task.label}
                     onBlur={(e) =>
@@ -319,14 +326,10 @@ export default function HomePage() {
                   >
                     ✕
                   </Button>
-                </>
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  {task.label}
-                </span>
-              )}
-            </div>
-          ))}
+                </div>
+              ))}
+            </>
+          )}
         </CardContent>
       </Card>
 
