@@ -21,7 +21,6 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const store = storeRef.current!
 
-    // 1) Load from localStorage
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
@@ -32,7 +31,6 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
       console.error('Failed to load challenge state from localStorage', err)
     }
 
-    // 2) Subscribe & save on every change
     const unsubscribe = store.subscribe(() => {
       const state = store.getState().challenge
       try {
@@ -50,7 +48,6 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   if (!ready) {
-    // Simple blank shell while we hydrate from localStorage
     return <div className="min-h-screen bg-background" />
   }
 

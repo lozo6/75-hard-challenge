@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
-export type Mode = 'STRICT' | 'COACH'
+export type Mode = 'HARD' | 'SOFT'
 
 export type TaskId =
   | 'workout1'
@@ -13,7 +13,7 @@ export type TaskId =
 
 export interface DayState {
   dayNumber: number
-  date: string // ISO string
+  date: string
   tasks: Record<TaskId, boolean>
   reflection: string
 }
@@ -22,7 +22,7 @@ export interface ChallengeState {
   startedAt: string | null
   mode: Mode
   currentDay: DayState
-  history?: DayState[] // previous days (local-only)
+  history?: DayState[]
 }
 
 const emptyTasks: Record<TaskId, boolean> = {
@@ -44,7 +44,7 @@ const makeNewDay = (dayNumber: number): DayState => ({
 
 const initialState: ChallengeState = {
   startedAt: null,
-  mode: 'STRICT',
+  mode: 'HARD',
   currentDay: makeNewDay(1),
   history: [],
 }
@@ -56,8 +56,15 @@ const challengeSlice = createSlice({
     hydrate(_state, action: PayloadAction<ChallengeState | undefined>) {
       if (!action.payload) return _state
       const payload = action.payload
+
+      // Migrate old 'STRICT' / 'COACH' modes if they exist in localStorage
+      let mode = (payload.mode as unknown) as Mode | 'STRICT' | 'COACH'
+      if (mode === 'STRICT') mode = 'HARD'
+      if (mode === 'COACH') mode = 'SOFT'
+
       return {
         ...payload,
+        mode,
         history: payload.history ?? [],
       }
     },
@@ -66,7 +73,6 @@ const challengeSlice = createSlice({
       state.mode = mode
       state.startedAt = new Date().toISOString()
       state.currentDay = makeNewDay(1)
-      // keep history so they can see past attempts
     },
     toggleTask(state, action: PayloadAction<{ taskId: TaskId }>) {
       const { taskId } = action.payload
@@ -82,7 +88,6 @@ const challengeSlice = createSlice({
       state.currentDay = makeNewDay(state.currentDay.dayNumber + 1)
     },
     resetChallenge(state) {
-      // reset current run, keep history of past days/runs
       state.startedAt = null
       state.currentDay = makeNewDay(1)
     },

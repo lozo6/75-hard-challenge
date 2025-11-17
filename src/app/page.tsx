@@ -46,6 +46,8 @@ export default function HomePage() {
     [challenge.currentDay],
   )
 
+  const modeLabel = challenge.mode === 'HARD' ? 'Hard' : 'Soft'
+
   const handleStart = () => {
     dispatch(startChallenge({ mode: challenge.mode }))
   }
@@ -55,15 +57,32 @@ export default function HomePage() {
   }
 
   const handleNextDay = () => {
+    const pct = getCompletionPercent(challenge.currentDay)
+
+    if (challenge.mode === 'HARD' && pct < 100) {
+      const confirmed = window.confirm(
+        'You are in Hard mode. Moving on without completing all tasks means restarting at Day 1, per 75 Hard rules. Do you want to restart?',
+      )
+      if (confirmed) {
+        dispatch(resetChallenge())
+      }
+      return
+    }
+
     dispatch(nextDay())
   }
 
   const handleReset = () => {
-    dispatch(resetChallenge())
+    const confirmed = window.confirm(
+      'This will reset you to Day 1. Your history for this run will remain on this device. Continue?',
+    )
+    if (confirmed) {
+      dispatch(resetChallenge())
+    }
   }
 
   const handleModeToggle = (checked: boolean) => {
-    dispatch(setMode(checked ? 'STRICT' : 'COACH'))
+    dispatch(setMode(checked ? 'HARD' : 'SOFT'))
   }
 
   const handleReflectionChange = (
@@ -73,7 +92,7 @@ export default function HomePage() {
   }
 
   const handleClearHistory = () => {
-    if (window.confirm('Clear all past days? This cannot be undone.')) {
+    if (window.confirm('Clear all past days from this device?')) {
       dispatch(clearHistory())
     }
   }
@@ -82,18 +101,18 @@ export default function HomePage() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-8">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">75 Hard Tracker</h1>
+          <h1 className="text-2xl font-bold">75 Challenge Tracker</h1>
           <p className="text-sm text-muted-foreground">
-            Simple daily checklist with Strict / Coach modes.
+            Simple daily checklist with Hard / Soft modes.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-xs uppercase text-muted-foreground">
-            Mode: {challenge.mode === 'STRICT' ? 'Strict' : 'Coach'}
+            Mode: {challenge.mode === 'HARD' ? 'Hard' : 'Soft'}
           </span>
           <Switch
-            checked={challenge.mode === 'STRICT'}
+            checked={challenge.mode === 'HARD'}
             onCheckedChange={handleModeToggle}
           />
         </div>
@@ -112,7 +131,7 @@ export default function HomePage() {
         <CardContent className="space-y-4">
           {!challenge.startedAt && (
             <Button onClick={handleStart} className="w-full">
-              Start 75 Hard
+              Start 75 {modeLabel}
             </Button>
           )}
 
@@ -169,7 +188,7 @@ export default function HomePage() {
               {/* Actions */}
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={handleReset}>
-                  Reset (fail day)
+                  Reset to Day 1
                 </Button>
                 <Button className="flex-1" onClick={handleNextDay}>
                   Next Day
