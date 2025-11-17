@@ -47,6 +47,11 @@ const challengeSlice = createSlice({
   name: 'challenge',
   initialState,
   reducers: {
+    hydrate(_state, action: PayloadAction<ChallengeState | undefined>) {
+      // Replace the slice state with what we loaded from storage (if any)
+      if (!action.payload) return _state
+      return action.payload
+    },
     startChallenge(state, action: PayloadAction<{ mode?: Mode } | undefined>) {
       const mode = action.payload?.mode ?? state.mode
       state.mode = mode
@@ -62,13 +67,11 @@ const challengeSlice = createSlice({
       state.currentDay.tasks[taskId] = !state.currentDay.tasks[taskId]
     },
     nextDay(state) {
-      // later you can enforce 75 max, etc.
       state.currentDay.dayNumber += 1
       state.currentDay.date = new Date().toISOString()
       state.currentDay.tasks = { ...emptyTasks }
     },
     resetChallenge(state) {
-      // This is what STRICT mode will call
       state.startedAt = null
       state.currentDay = {
         dayNumber: 1,
@@ -82,7 +85,13 @@ const challengeSlice = createSlice({
   },
 })
 
-export const { startChallenge, toggleTask, nextDay, resetChallenge, setMode } =
-  challengeSlice.actions
+export const {
+  hydrate,
+  startChallenge,
+  toggleTask,
+  nextDay,
+  resetChallenge,
+  setMode,
+} = challengeSlice.actions
 
 export default challengeSlice.reducer

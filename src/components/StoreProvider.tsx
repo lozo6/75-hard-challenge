@@ -1,14 +1,57 @@
 'use client'
 
-import { ReactNode, useRef } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Provider } from 'react-redux'
 import { AppStore, makeStore } from '@/lib/store'
+import {
+  hydrate,
+  type ChallengeState,
+} from '@/features/challenge/challengeSlice'
+
+const STORAGE_KEY = 'challengeState'
 
 export default function StoreProvider({ children }: { children: ReactNode }) {
   const storeRef = useRef<AppStore | undefined>(undefined)
+  const [ready, setReady] = useState(false)
 
   if (!storeRef.current) {
     storeRef.current = makeStore()
+  }
+
+  useEffect(() => {
+    const store = storeRef.current!
+
+    // 1) Load from localStorage
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as ChallengeState
+        store.dispatch(hydrate(parsed))
+      }
+    } catch (err) {
+      console.error('Failed to load challenge state from localStorage', err)
+    }
+
+    // 2) Subscribe & save on every change
+    const unsubscribe = store.subscribe(() => {
+      const state = store.getState().challenge
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      } catch (err) {
+        console.error('Failed to save challenge state to localStorage', err)
+      }
+    })
+
+    setReady(true)
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+
+  if (!ready) {
+    // Simple blank shell while we hydrate from localStorage
+    return <div className="min-h-screen bg-background" />
   }
 
   return <Provider store={storeRef.current!}>{children}</Provider>
