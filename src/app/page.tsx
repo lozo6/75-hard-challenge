@@ -11,7 +11,6 @@ import {
   setReflection,
   clearHistory,
   addTask,
-  updateTaskLabel,
   removeTask,
   resetTasksForMode,
   type DayState,
@@ -99,23 +98,10 @@ export default function HomePage() {
     }
   }
 
-  const handleUpdateTaskLabel = (id: TaskId, label: string) => {
-    if (!canEditTasks) return
-    dispatch(
-      updateTaskLabel({
-        mode: challenge.mode,
-        id,
-        label,
-      }),
-    )
-  }
-
   const handleRemoveTask = (id: TaskId) => {
     if (!canEditTasks) return
-    const confirmed = window.confirm('Remove this task from this mode?')
-    if (confirmed) {
-      dispatch(removeTask({ mode: challenge.mode, id }))
-    }
+    // Removed confirmation dialog for smoother UX
+    dispatch(removeTask({ mode: challenge.mode, id }))
   }
 
   const handleAddTask = () => {
@@ -278,24 +264,22 @@ export default function HomePage() {
                   value={newTaskLabel}
                   onChange={(e) => setNewTaskLabel(e.target.value)}
                   placeholder={`Add a ${modeLabel.toLowerCase()} task...`}
-                  className="h-8 text-xs"
+                  className="h-10 text-sm"
                 />
                 <Button
-                  size="sm"
                   variant="outline"
-                  className="text-xs"
+                  className="h-10"
                   onClick={handleAddTask}
                   disabled={!newTaskLabel.trim()}
                 >
                   Add
                 </Button>
                 <Button
-                  size="sm"
                   variant="ghost"
-                  className="text-xs text-muted-foreground"
+                  className="h-10 text-xs text-muted-foreground"
                   onClick={handleResetTasksForMode}
                 >
-                  Reset to defaults
+                  Reset defaults
                 </Button>
               </div>
 
@@ -308,19 +292,18 @@ export default function HomePage() {
               {tasksForMode.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center gap-2 rounded-md border p-2"
+                  className="flex items-center gap-2"
                 >
-                  <Input
-                    defaultValue={task.label}
-                    onBlur={(e) =>
-                      handleUpdateTaskLabel(task.id, e.target.value)
-                    }
-                    className="h-8 text-xs"
-                  />
+                  {/* READ-ONLY TASK LABEL */}
+                  <div className="flex-1 flex items-center min-h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background">
+                    {task.label}
+                  </div>
+
+                  {/* DELETE BUTTON */}
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-8 w-8 text-xs text-destructive"
+                    className="h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => handleRemoveTask(task.id)}
                     aria-label="Remove task"
                   >
